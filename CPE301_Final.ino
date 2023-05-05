@@ -76,6 +76,8 @@ void setup() {
 void loop() {
   DateTime now = rtc.now();
 
+  lcd.clear();
+
   Serial.print(now.hour(), DEC);
   Serial.print(':');
   Serial.print(now.minute(), DEC);
@@ -91,6 +93,12 @@ void loop() {
   Serial.println(DHT.temperature);
   Serial.print("Humidity: ");
   Serial.println(DHT.humidity);
+
+  lcd.print("Temp: ");
+  lcd.print(DHT.temperature);
+  lcd.setCursor(0, 1);
+  lcd.print("Humidity: ");
+  lcd.print(DHT.humidity);
 
   delay(1000);
 }
