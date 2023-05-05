@@ -40,7 +40,7 @@ unsigned int adc_read(unsigned char adc_channel_num)
   // clear the channel selection bits (MUX 5)
   *my_ADCSRB &= 0b11110111;
   // set the channel number
-  if(adc_channel_num > 7)
+  if (adc_channel_num > 7)
   {
     // set the channel selection bits, but remove the most significant bit (bit 3)
     adc_channel_num -= 8;
@@ -56,6 +56,9 @@ unsigned int adc_read(unsigned char adc_channel_num)
   // return the result in the ADC data register
   return *my_ADC_DATA;
 }
+
+// 0 - disabled, 1 - idle, 2 - running, 3 - error
+int current_state = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -74,31 +77,100 @@ void setup() {
 }
 
 void loop() {
-  DateTime now = rtc.now();
+  // DateTime now = rtc.now();
+
+  // lcd.clear();
+
+  // Serial.print(now.hour(), DEC);
+  // Serial.print(':');
+  // Serial.print(now.minute(), DEC);
+  // Serial.print(':');
+  // Serial.println(now.second(), DEC);
+  
+  // unsigned int adc_reading = adc_read(2);
+  // Serial.print("Water sensor: ");
+  // Serial.println(adc_reading);
+
+  // int chk = DHT.read11(12);
+  // Serial.print("Temp: ");
+  // Serial.println(DHT.temperature);
+  // Serial.print("Humidity: ");
+  // Serial.println(DHT.humidity);
+
+  // lcd.print("Temp: ");
+  // lcd.print(DHT.temperature);
+  // lcd.setCursor(0, 1);
+  // lcd.print("Humidity: ");
+  // lcd.print(DHT.humidity);
+
+  // delay(1000);
 
   lcd.clear();
-
-  Serial.print(now.hour(), DEC);
-  Serial.print(':');
-  Serial.print(now.minute(), DEC);
-  Serial.print(':');
-  Serial.println(now.second(), DEC);
   
-  unsigned int adc_reading = adc_read(2);
-  Serial.print("Water sensor: ");
-  Serial.println(adc_reading);
+  if (current_state == 0) {
+    // Disabled
 
-  int chk = DHT.read11(12);
-  Serial.print("Temp: ");
-  Serial.println(DHT.temperature);
-  Serial.print("Humidity: ");
-  Serial.println(DHT.humidity);
+    // Fan off
+    // Yellow LED on
 
-  lcd.print("Temp: ");
-  lcd.print(DHT.temperature);
-  lcd.setCursor(0, 1);
-  lcd.print("Humidity: ");
-  lcd.print(DHT.humidity);
+    // If button pressed, transition to Idle
+  }
+  else if (current_state == 1) {
+    // Idle
 
-  delay(1000);
+    // Fan off
+    // Green LED on
+
+    // temp and humidity should be dislayed on LCD
+    lcd.print("Temp: ");
+    lcd.print(DHT.temperature);
+    lcd.setCursor(0, 1);
+    lcd.print("Humidity: ");
+    lcd.print(DHT.humidity);
+
+    // if stop is pressed, transistion to disabled
+
+    // If temp > threshold transition to running
+
+    if (DHT.temperature > 68) {
+      current_state = 2;
+      //start fan motor 
+
+    }
+  }
+  else if (current_state == 2) {
+    // Running
+
+    // Blue LED on
+   
+    // temp and humidity should be dislayed on LCD
+    lcd.print("Temp: ");
+    lcd.print(DHT.temperature);
+    lcd.setCursor(0, 1);
+    lcd.print("Humidity: ");
+    lcd.print(DHT.humidity);
+
+    // If temp <= threshold transition to idle
+
+    if (DHT.temperature <= 68){
+      current_state = 1
+
+      //stop fan motor
+
+    }
+  }
+  else if (current_state == 3) {
+    // Error
+
+    // Red LED on
+
+    // display message "Water level is too low"
+    lcd.print("Water level is too low");
+  }
+
+
+
+
+
+
 }
