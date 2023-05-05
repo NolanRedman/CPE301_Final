@@ -1,6 +1,9 @@
 #include <RTClib.h>
+#include <dht.h>
 
+// Sensors
 RTC_DS1307 rtc;
+dht DHT;
 
 #define RDA 0x80
 #define TBE 0x20  
@@ -75,7 +78,14 @@ void loop() {
   Serial.println(now.second(), DEC);
   
   unsigned int adc_reading = adc_read(2);
+  Serial.print("Water sensor: ");
   Serial.println(adc_reading);
+
+  int chk = DHT.read11(12);
+  Serial.print("Temp: ");
+  Serial.println(DHT.temperature);
+  Serial.print("Humidity: ");
+  Serial.println(DHT.humidity);
 
   delay(1000);
 }
