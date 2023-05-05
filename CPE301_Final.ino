@@ -1,9 +1,11 @@
 #include <RTClib.h>
 #include <dht.h>
+#include <LiquidCrystal.h>
 
 // Sensors
 RTC_DS1307 rtc;
 dht DHT;
+LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
 
 #define RDA 0x80
 #define TBE 0x20  
@@ -63,6 +65,9 @@ void setup() {
 
   // SETUP RTC MODULE
   rtc.begin();
+
+  // setup the LCD
+  lcd.begin(16, 2);
 
   // Set the RTC to the date & time on PC this sketch was compiled
   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
