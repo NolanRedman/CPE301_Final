@@ -16,6 +16,11 @@ volatile unsigned char* my_ADCSRB = (unsigned char*) 0x7B;
 volatile unsigned char* my_ADCSRA = (unsigned char*) 0x7A;
 volatile unsigned int* my_ADC_DATA = (unsigned int*) 0x78;
 
+// Memory address for the LEDs
+volatile unsigned char* port_a = (unsigned char*) 0x22;
+volatile unsigned char* ddr_a = (unsigned char*) 0x21;
+volatile unsigned char* pin_a = (unsigned char*) 0x20;
+
 void adc_init()
 {
   // setup the A register
@@ -62,6 +67,7 @@ int current_state = 0;
 
 void setup() {
   Serial.begin(9600);
+  current_state = 1;
 
   // setup the ADC
   adc_init();
@@ -74,12 +80,14 @@ void setup() {
 
   // Set the RTC to the date & time on PC this sketch was compiled
   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+
+  // Setup the LEDs
+  // Set 22-28 to output
+  *ddr_a |= 0xFF;
 }
 
 void loop() {
   // DateTime now = rtc.now();
-
-  // lcd.clear();
 
   // Serial.print(now.hour(), DEC);
   // Serial.print(':');
@@ -91,12 +99,13 @@ void loop() {
   // Serial.print("Water sensor: ");
   // Serial.println(adc_reading);
 
-  // int chk = DHT.read11(12);
-  // Serial.print("Temp: ");
-  // Serial.println(DHT.temperature);
-  // Serial.print("Humidity: ");
-  // Serial.println(DHT.humidity);
+  int chk = DHT.read11(12);
+  Serial.print("Temp: ");
+  Serial.println(DHT.temperature);
+  Serial.print("Humidity: ");
+  Serial.println(DHT.humidity);
 
+  // lcd.clear();
   // lcd.print("Temp: ");
   // lcd.print(DHT.temperature);
   // lcd.setCursor(0, 1);
@@ -105,13 +114,17 @@ void loop() {
 
   // delay(1000);
 
-  lcd.clear();
+  
   
   if (current_state == 0) {
     // Disabled
 
     // Fan off
     // Yellow LED on
+    *port_a &= 0x00;
+    *port_a |= 0x01;
+
+    Serial.println("hi");
 
     // If button pressed, transition to Idle
   }
@@ -120,8 +133,12 @@ void loop() {
 
     // Fan off
     // Green LED on
+    *port_a &= 0x00;
+    *port_a |= 0x04;
 
     // temp and humidity should be dislayed on LCD
+    int chk = DHT.read11(12);
+    lcd.clear();
     lcd.print("Temp: ");
     lcd.print(DHT.temperature);
     lcd.setCursor(0, 1);
@@ -132,7 +149,7 @@ void loop() {
 
     // If temp > threshold transition to running
 
-    if (DHT.temperature > 68) {
+    if (DHT.temperature > 26) {
       current_state = 2;
       //start fan motor 
 
@@ -142,8 +159,11 @@ void loop() {
     // Running
 
     // Blue LED on
+    *port_a &= 0x00;
+    *port_a |= 0x40;
    
     // temp and humidity should be dislayed on LCD
+    int chk = DHT.read11(12);
     lcd.print("Temp: ");
     lcd.print(DHT.temperature);
     lcd.setCursor(0, 1);
@@ -152,8 +172,8 @@ void loop() {
 
     // If temp <= threshold transition to idle
 
-    if (DHT.temperature <= 68){
-      current_state = 1
+    if (DHT.temperature <= 26){
+      current_state = 1;
 
       //stop fan motor
 
