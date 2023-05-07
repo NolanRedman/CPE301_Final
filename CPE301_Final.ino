@@ -1,11 +1,15 @@
 #include <RTClib.h>
 #include <dht.h>
 #include <LiquidCrystal.h>
+#include <Stepper.h>
 
 // Sensors
 RTC_DS1307 rtc;
 dht DHT;
 LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
+
+const int stepsPerRevolution = 2038;
+Stepper myStepper = Stepper(stepsPerRevolution, 11, 10, 9, 8);
 
 #define RDA 0x80
 #define TBE 0x20  
@@ -99,11 +103,11 @@ void loop() {
   // Serial.print("Water sensor: ");
   // Serial.println(adc_reading);
 
-  int chk = DHT.read11(12);
-  Serial.print("Temp: ");
-  Serial.println(DHT.temperature);
-  Serial.print("Humidity: ");
-  Serial.println(DHT.humidity);
+  // int chk = DHT.read11(12);
+  // Serial.print("Temp: ");
+  // Serial.println(DHT.temperature);
+  // Serial.print("Humidity: ");
+  // Serial.println(DHT.humidity);
 
   // lcd.clear();
   // lcd.print("Temp: ");
@@ -114,6 +118,8 @@ void loop() {
 
   // delay(1000);
 
+  myStepper.setSpeed(10);
+	myStepper.step(stepsPerRevolution);
   
   
   if (current_state == 0) {
