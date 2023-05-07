@@ -25,6 +25,13 @@ volatile unsigned char* port_a = (unsigned char*) 0x22;
 volatile unsigned char* ddr_a = (unsigned char*) 0x21;
 volatile unsigned char* pin_a = (unsigned char*) 0x20;
 
+// Memory address for the buttons
+volatile unsigned char* port_g = (unsigned char*) 0x34;
+volatile unsigned char* ddr_g = (unsigned char*) 0x33;
+volatile unsigned char* pin_g = (unsigned char*) 0x32;
+
+volatile int vent_position;
+
 void adc_init()
 {
   // setup the A register
@@ -88,7 +95,17 @@ void setup() {
   // Setup the LEDs
   // Set 22-28 to output
   *ddr_a |= 0xFF;
+
+  // Setup the buttons
+  // Set PG0 and PG1 to input
+  *ddr_g &= 0xFC;
+  // Enable pullup resistor
+  *port_g |= 0x03;
+  // Attach interrupt function to the vent button
+  // attachInterrupt(digitalPinToInterrupt(41), ISRToggleVent, FALLING);
 }
+
+volatile bool vent_open = false;
 
 void loop() {
   // DateTime now = rtc.now();
@@ -103,24 +120,21 @@ void loop() {
   // Serial.print("Water sensor: ");
   // Serial.println(adc_reading);
 
-  // int chk = DHT.read11(12);
-  // Serial.print("Temp: ");
-  // Serial.println(DHT.temperature);
-  // Serial.print("Humidity: ");
-  // Serial.println(DHT.humidity);
-
-  // lcd.clear();
-  // lcd.print("Temp: ");
-  // lcd.print(DHT.temperature);
-  // lcd.setCursor(0, 1);
-  // lcd.print("Humidity: ");
-  // lcd.print(DHT.humidity);
-
-  // delay(1000);
-
-  myStepper.setSpeed(10);
-	myStepper.step(stepsPerRevolution);
-  
+  // Detect when the vent button is pressed, then spin the vent if it is
+  if (!(*pin_g & 0x01)) {
+    if (vent_open) {
+      myStepper.setSpeed(10);
+      myStepper.step(-1000);
+      delay(500);
+      vent_open = false;
+    }
+    else {
+      myStepper.setSpeed(10);
+      myStepper.step(1000);
+      delay(500);
+      vent_open = true;
+    }
+  }
   
   if (current_state == 0) {
     // Disabled
@@ -129,8 +143,6 @@ void loop() {
     // Yellow LED on
     *port_a &= 0x00;
     *port_a |= 0x01;
-
-    Serial.println("hi");
 
     // If button pressed, transition to Idle
   }
@@ -193,10 +205,13 @@ void loop() {
     // display message "Water level is too low"
     lcd.print("Water level is too low");
   }
+}
 
+void ISRToggleVent(void) {
+  if (vent_open) {
 
+  }
+  else {
 
-
-
-
+  }
 }
