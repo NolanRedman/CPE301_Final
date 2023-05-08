@@ -20,15 +20,31 @@ volatile unsigned char* my_ADCSRB = (unsigned char*) 0x7B;
 volatile unsigned char* my_ADCSRA = (unsigned char*) 0x7A;
 volatile unsigned int* my_ADC_DATA = (unsigned int*) 0x78;
 
+// Memory address for UART
+volatile unsigned char *myUCSR0A = (unsigned char *)0x00C0;
+volatile unsigned char *myUCSR0B = (unsigned char *)0x00C1;
+volatile unsigned char *myUCSR0C = (unsigned char *)0x00C2;
+volatile unsigned int  *myUBRR0  = (unsigned int *) 0x00C4;
+volatile unsigned char *myUDR0   = (unsigned char *)0x00C6;
+
 // Memory address for the LEDs
 volatile unsigned char* port_a = (unsigned char*) 0x22;
 volatile unsigned char* ddr_a = (unsigned char*) 0x21;
 volatile unsigned char* pin_a = (unsigned char*) 0x20;
 
+// Memory address for the fan motor
+volatile unsigned char* port_b = (unsigned char*) 0x25;
+volatile unsigned char* ddr_b = (unsigned char*) 0x24;
+volatile unsigned char* pin_b = (unsigned char*) 0x23;
+
 // Memory address for the buttons
 volatile unsigned char* port_g = (unsigned char*) 0x34;
 volatile unsigned char* ddr_g = (unsigned char*) 0x33;
 volatile unsigned char* pin_g = (unsigned char*) 0x32;
+
+volatile unsigned char* port_d = (unsigned char*) 0x2B;
+volatile unsigned char* ddr_d = (unsigned char*) 0x2A;
+volatile unsigned char* pin_d = (unsigned char*) 0x29;
 
 volatile int vent_position;
 
@@ -77,8 +93,9 @@ unsigned int adc_read(unsigned char adc_channel_num)
 int current_state = 0;
 
 void setup() {
-  Serial.begin(9600);
-  current_state = 1;
+  U0Init(9600);
+  // Serial.begin(9600);
+  current_state = 0;
 
   // setup the ADC
   adc_init();
@@ -96,13 +113,19 @@ void setup() {
   // Set 22-28 to output
   *ddr_a |= 0xFF;
 
+  // Setup the fan port
+  *ddr_b |= 0x80;
+
   // Setup the buttons
   // Set PG0 and PG1 to input
   *ddr_g &= 0xFC;
   // Enable pullup resistor
   *port_g |= 0x03;
-  // Attach interrupt function to the vent button
-  // attachInterrupt(digitalPinToInterrupt(41), ISRToggleVent, FALLING);
+
+  *ddr_d &= 0xF7;
+  *port_d |= 0x08;
+  // Attach interrupt function to the on/off button
+  attachInterrupt(digitalPinToInterrupt(18), ISROnButton, FALLING);
 }
 
 volatile bool vent_open = false;
@@ -125,13 +148,11 @@ void loop() {
     if (vent_open) {
       myStepper.setSpeed(10);
       myStepper.step(-1000);
-      delay(500);
       vent_open = false;
     }
     else {
       myStepper.setSpeed(10);
       myStepper.step(1000);
-      delay(500);
       vent_open = true;
     }
   }
@@ -140,6 +161,8 @@ void loop() {
     // Disabled
 
     // Fan off
+    *port_b &= 0x7F;
+
     // Yellow LED on
     *port_a &= 0x00;
     *port_a |= 0x01;
@@ -150,6 +173,8 @@ void loop() {
     // Idle
 
     // Fan off
+    *port_b &= 0x7F;
+
     // Green LED on
     *port_a &= 0x00;
     *port_a |= 0x04;
@@ -176,6 +201,9 @@ void loop() {
   else if (current_state == 2) {
     // Running
 
+    // Turn on fan
+    *port_b |= 0x80;
+
     // Blue LED on
     *port_a &= 0x00;
     *port_a |= 0x40;
@@ -200,6 +228,9 @@ void loop() {
   else if (current_state == 3) {
     // Error
 
+    // Fan off
+    *port_b &= 0x7F;
+
     // Red LED on
 
     // display message "Water level is too low"
@@ -207,11 +238,54 @@ void loop() {
   }
 }
 
-void ISRToggleVent(void) {
-  if (vent_open) {
+void ISROnButton(void) {
+  if (current_state == 0) {
+    current_state = 1;
+    // putChar('a');
+    
+    // Record time of state transition
+    // DateTime now = rtc.now();
+    // putString("" + now.hour());
+    // putString(':');
+    // putString("" + now.minute());
+    // putString(':');
+    // putString("" + now.second());
+    putchar('\n');
+    putString(" Transitioning to idle.");
 
   }
   else {
+    current_state = 0;
+  }
+}
 
+// UART Functions
+void U0Init(int U0baud) {
+  unsigned long FCPU = 16000000;
+  unsigned int tbaud;
+  tbaud = (FCPU / 16 / U0baud - 1);
+  *myUCSR0A = 0x20;
+  *myUCSR0B = 0x18;
+  *myUCSR0C = 0x06;
+  *myUBRR0 = tbaud;
+}
+
+unsigned char kbhit() {
+  return *myUCSR0A & RDA;
+}
+
+unsigned char getChar() {
+  return *myUDR0;
+}
+
+void putChar(unsigned char U0pdata) {
+  while (!(*myUCSR0A & TBE));
+  *myUDR0 = U0pdata;
+}
+
+void putString(char * data) {
+  for (int i = 0; i < data[i] != 0; i++) {
+    // Serial.print(char(data[i]));
+    putChar(data[i]);
   }
 }
