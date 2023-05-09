@@ -11,9 +11,6 @@ LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
 const int stepsPerRevolution = 2038;
 Stepper myStepper = Stepper(stepsPerRevolution, 11, 10, 9, 8);
 
-#define RDA 0x80
-#define TBE 0x20  
-
 // Memory address for the ADC
 volatile unsigned char* my_ADMUX = (unsigned char*) 0x7C;
 volatile unsigned char* my_ADCSRB = (unsigned char*) 0x7B;
@@ -26,6 +23,9 @@ volatile unsigned char *myUCSR0B = (unsigned char *)0x00C1;
 volatile unsigned char *myUCSR0C = (unsigned char *)0x00C2;
 volatile unsigned int  *myUBRR0  = (unsigned int *) 0x00C4;
 volatile unsigned char *myUDR0   = (unsigned char *)0x00C6;
+#define RDA 0x80
+#define TBE 0x20 
+
 
 // Memory address for the LEDs
 volatile unsigned char* port_a = (unsigned char*) 0x22;
@@ -90,11 +90,13 @@ unsigned int adc_read(unsigned char adc_channel_num)
 }
 
 // 0 - disabled, 1 - idle, 2 - running, 3 - error
-int current_state = 0;
+volatile int current_state = 0;
+// Whether or not a transition message needs to be printed
+volatile bool transition = 0;
 
 void setup() {
   U0Init(9600);
-  // Serial.begin(9600);
+
   current_state = 0;
 
   // setup the ADC
@@ -131,29 +133,43 @@ void setup() {
 volatile bool vent_open = false;
 
 void loop() {
-  // DateTime now = rtc.now();
 
-  // Serial.print(now.hour(), DEC);
-  // Serial.print(':');
-  // Serial.print(now.minute(), DEC);
-  // Serial.print(':');
-  // Serial.println(now.second(), DEC);
-  
-  // unsigned int adc_reading = adc_read(2);
-  // Serial.print("Water sensor: ");
-  // Serial.println(adc_reading);
+  // If a transition occured, print a message
+  if (transition) {
+    transition = false;
+    U0printTime();
+    U0putString(" Transitioned to");
+    if (current_state == 0) {
+      U0putString(" disabled.");
+      U0putChar(10); // newline
+    }
+    else if (current_state == 1) {
+      U0putString(" idle.");
+      U0putChar(10);
+    }
+    else if (current_state == 2) {
+      U0putString(" running.");
+      U0putChar(10);
+    }
+    else if (current_state == 2) {
+      U0putString(" error.");
+      U0putChar(10);
+    }
+  }
 
   // Detect when the vent button is pressed, then spin the vent if it is
-  if (!(*pin_g & 0x01)) {
-    if (vent_open) {
-      myStepper.setSpeed(10);
-      myStepper.step(-1000);
-      vent_open = false;
-    }
-    else {
-      myStepper.setSpeed(10);
-      myStepper.step(1000);
-      vent_open = true;
+  if (current_state != 3) {
+    if (!(*pin_g & 0x01)) {
+      if (vent_open) {
+        myStepper.setSpeed(10);
+        myStepper.step(-1000);
+        vent_open = false;
+      }
+      else {
+        myStepper.setSpeed(10);
+        myStepper.step(1000);
+        vent_open = true;
+      }
     }
   }
   
@@ -167,7 +183,8 @@ void loop() {
     *port_a &= 0x00;
     *port_a |= 0x01;
 
-    // If button pressed, transition to Idle
+    // Clear the lcd screen
+    lcd.clear(); 
   }
   else if (current_state == 1) {
     // Idle
@@ -188,15 +205,14 @@ void loop() {
     lcd.print("Humidity: ");
     lcd.print(DHT.humidity);
 
-    // if stop is pressed, transistion to disabled
-
     // If temp > threshold transition to running
-
     if (DHT.temperature > 26) {
       current_state = 2;
-      //start fan motor 
-
+      transition = true;      
     }
+
+    // If water level < threshold transition to error
+    
   }
   else if (current_state == 2) {
     // Running
@@ -220,9 +236,7 @@ void loop() {
 
     if (DHT.temperature <= 26){
       current_state = 1;
-
-      //stop fan motor
-
+      transition = true;
     }
   }
   else if (current_state == 3) {
@@ -239,28 +253,20 @@ void loop() {
 }
 
 void ISROnButton(void) {
-  if (current_state == 0) {
+  if (current_state == 3) {
     current_state = 1;
-    // putChar('a');
-    
-    // Record time of state transition
-    // DateTime now = rtc.now();
-    // putString("" + now.hour());
-    // putString(':');
-    // putString("" + now.minute());
-    // putString(':');
-    // putString("" + now.second());
-    putchar('\n');
-    putString(" Transitioning to idle.");
-
+  }
+  else if (current_state == 0) {
+    current_state = 1;
   }
   else {
     current_state = 0;
   }
+  transition = true;
 }
 
 // UART Functions
-void U0Init(int U0baud) {
+void U0Init(unsigned long U0baud) {
   unsigned long FCPU = 16000000;
   unsigned int tbaud;
   tbaud = (FCPU / 16 / U0baud - 1);
@@ -270,22 +276,40 @@ void U0Init(int U0baud) {
   *myUBRR0 = tbaud;
 }
 
-unsigned char kbhit() {
+unsigned char U0kbhit() {
   return *myUCSR0A & RDA;
 }
 
-unsigned char getChar() {
+unsigned char U0getChar() {
   return *myUDR0;
 }
 
-void putChar(unsigned char U0pdata) {
+void U0putChar(unsigned char U0pdata) {
   while (!(*myUCSR0A & TBE));
   *myUDR0 = U0pdata;
 }
 
-void putString(char * data) {
+// Custom function to send a string of characters to UART and send newline
+void U0putString(char * data) {
   for (int i = 0; i < data[i] != 0; i++) {
-    // Serial.print(char(data[i]));
-    putChar(data[i]);
+    U0putChar(data[i]);
   }
+}
+
+// Custom function to send the current time to UART
+void U0printTime() {
+  DateTime now = rtc.now();
+  char hour[256];
+  char min[256];
+  char sec[256];
+
+  snprintf(hour, sizeof(hour), "%d", now.hour());
+  snprintf(min, sizeof(min), "%d", now.minute());
+  snprintf(sec, sizeof(sec), "%d", now.second());
+
+  U0putString(hour);
+  U0putChar(':');
+  U0putString(min);
+  U0putChar(':');
+  U0putString(sec);
 }
