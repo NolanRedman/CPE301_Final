@@ -151,11 +151,11 @@ void loop() {
       U0putString(" running.");
       U0putChar(10);
     }
-    else if (current_state == 2) {
+    else if (current_state == 3) {
       U0putString(" error.");
       U0putChar(10);
     }
-  }
+  } 
 
   // Detect when the vent button is pressed, then spin the vent if it is
   if (current_state != 3) {
@@ -184,7 +184,7 @@ void loop() {
     *port_a |= 0x01;
 
     // Clear the lcd screen
-    lcd.clear(); 
+    lcd.clear();
   }
   else if (current_state == 1) {
     // Idle
@@ -206,13 +206,17 @@ void loop() {
     lcd.print(DHT.humidity);
 
     // If temp > threshold transition to running
-    if (DHT.temperature > 26) {
+    if (DHT.temperature > 25) {
       current_state = 2;
       transition = true;      
     }
 
     // If water level < threshold transition to error
-    
+    if (adc_read(2) < 100) {
+      current_state = 3;
+      transition = true;
+    }
+
   }
   else if (current_state == 2) {
     // Running
@@ -226,6 +230,7 @@ void loop() {
    
     // temp and humidity should be dislayed on LCD
     int chk = DHT.read11(12);
+    lcd.clear();
     lcd.print("Temp: ");
     lcd.print(DHT.temperature);
     lcd.setCursor(0, 1);
@@ -233,9 +238,14 @@ void loop() {
     lcd.print(DHT.humidity);
 
     // If temp <= threshold transition to idle
-
-    if (DHT.temperature <= 26){
+    if (DHT.temperature <= 25){
       current_state = 1;
+      transition = true;
+    }
+
+    // If water level < threshold transition to error
+    if (adc_read(2) < 100) {
+      current_state = 3;
       transition = true;
     }
   }
@@ -246,12 +256,18 @@ void loop() {
     *port_b &= 0x7F;
 
     // Red LED on
+    *port_a &= 0x00;
+    *port_a |= 0x10;
 
     // display message "Water level is too low"
-    lcd.print("Water level is too low");
+    lcd.clear();
+    lcd.print("Water level is");
+    lcd.setCursor(0, 1);
+    lcd.print("too low.");
   }
 }
 
+// Interrupt for the on/off button
 void ISROnButton(void) {
   if (current_state == 3) {
     current_state = 1;
