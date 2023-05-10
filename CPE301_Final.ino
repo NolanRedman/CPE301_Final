@@ -1,3 +1,5 @@
+// Nolan Redman
+
 #include <RTClib.h>
 #include <dht.h>
 #include <LiquidCrystal.h>
@@ -8,6 +10,7 @@ RTC_DS1307 rtc;
 dht DHT;
 LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
 
+// Stepper Motor
 const int stepsPerRevolution = 2038;
 Stepper myStepper = Stepper(stepsPerRevolution, 11, 10, 9, 8);
 
@@ -46,8 +49,10 @@ volatile unsigned char* port_d = (unsigned char*) 0x2B;
 volatile unsigned char* ddr_d = (unsigned char*) 0x2A;
 volatile unsigned char* pin_d = (unsigned char*) 0x29;
 
+// Keep track of vent open or closed
 volatile int vent_position;
 
+// ADC functions
 void adc_init()
 {
   // setup the A register
@@ -126,7 +131,8 @@ void setup() {
 
   *ddr_d &= 0xF7;
   *port_d |= 0x08;
-  // Attach interrupt function to the on/off button
+
+  // Attach ISR to the on/off button
   attachInterrupt(digitalPinToInterrupt(18), ISROnButton, FALLING);
 }
 
@@ -149,6 +155,10 @@ void loop() {
     }
     else if (current_state == 2) {
       U0putString(" running.");
+      U0putChar(10);
+
+      U0printTime();
+      U0putString(" Motor started.");
       U0putChar(10);
     }
     else if (current_state == 3) {
@@ -315,14 +325,26 @@ void U0putString(char * data) {
 // Custom function to send the current time to UART
 void U0printTime() {
   DateTime now = rtc.now();
+  char year[256];
+  char month[256];
+  char day[256];
   char hour[256];
   char min[256];
   char sec[256];
 
+  snprintf(year, sizeof(year), "%d", now.year());
+  snprintf(month, sizeof(month), "%d", now.month());
+  snprintf(day, sizeof(day), "%d", now.day());
   snprintf(hour, sizeof(hour), "%d", now.hour());
   snprintf(min, sizeof(min), "%d", now.minute());
   snprintf(sec, sizeof(sec), "%d", now.second());
 
+  U0putString(month);
+  U0putChar('/');
+  U0putString(day);
+  U0putChar('/');
+  U0putString(year);
+  U0putChar(' ');
   U0putString(hour);
   U0putChar(':');
   U0putString(min);
